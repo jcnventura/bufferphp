@@ -1,0 +1,25 @@
+{
+    "name": "jcnventura/bufferphp",
+    "description": "Automatically Post Updates To The Buffer API With PHP.",
+    "keywords": ["buffer.com", "bufferapp", "api"],
+    "license": "CC0-1.0",
+    "authors": [
+        {
+            "name": "Little Apps",
+            "homepage": "https://www.little-apps.com/"
+        },
+        {
+            "name": "Joao Ventura",
+            "homepage": "https://venturas.org"
+        }
+    ],
+    "type": "library",
+    "require": {
+		"php": ">=5.2"
+    },
+	"autoload": {
+        "psr-4": {
+            "jcnventura\\BufferPHP\\": "src/"
+        }
+    }
+}
