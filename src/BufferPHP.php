@@ -1,174 +1,216 @@
 <?php
 /**
- * BufferPHP v0.1
+ * BufferPHP v0.2
  *
- * See http://www.little-apps.org/blog/2012/09/automatically-post-updates-buffer-api-php/ for an example on how to use this class
- * Information on the Buffer API can be found at http://bufferapp.com/developers/api
+ * PHP Version 5
  *
- * @package	BufferPHP
- * @author		Little Apps (http://www.little-apps.org)
- * @copyright   This is public domain so anyone can use it for any reason
- * @link		http://little-apps.org
- * @since		Version 0.1
+ * See https://www.little-apps.com/2012/09/automatically-post-updates-buffer-api-php/
+ * for an example on how to use this class.
+ * Information on the Buffer API can be found at https://buffer.com/developers/api
+ *
+ * @category   Bufferphp
+ * @package    BufferPHP
+ * @author     Little Apps <nick@little-apps.com>
+ * @copyright  2012 This is public domain so anyone can use it for any reason
+ * @license    CC0-1.0 http://creativecommons.org/publicdomain/zero/1.0/
+ * @link       https://github.com/jcnventura/bufferphp
+ * @since      Version 0.1
  * @filesource
  */
 
-if (!function_exists('curl_init')) {
-  throw new Exception('BufferPHP needs the CURL PHP extension.');
-}
-if (!function_exists('json_decode')) {
-  throw new Exception('BufferPHP needs the JSON PHP extension.');
-}
+namespace jcnventura\BufferPHP;
 
-class BufferPHP {
-	// You can change the options below if you wish
-	private $config = array(
-						'user_agent' => 'BufferPHP v0.1', // The user agent to send to the Buffer API
-						'connect_timeout' => 30, // Maximum time to wait (in seconds) before connect fails
-						'timeout' => 30, // Maximum time to wait (in seconds) before API doesnt respond
-						'verify_ssl_cert' => false // This is false by default because some servers have trouble verifing SSL certificates through cURL
-						);
-						
-	// You should only change the code below if you know what you're doing!
-	
-	/**
-     * @var string Access token
-     */
-	private $access_token = '';
-	
-	/**
-     * @var string Base URL for API 
-     */
-	private $base_url = 'https://api.bufferapp.com/1/';
-	
-	/**
-     * @var array HTTP headers from last request
-     */
-	public $http_header = array();
-	/**
-     * @var array Info about last cURL request
-     */
-	public $http_info = array();
-	/**
-     * @var string The last URL used
-     */
-	public $last_url = '';
+/**
+ * Class BufferPHP
+ *
+ * @category Bufferphp
+ * @package  BufferPHP
+ * @author   Little Apps <nick@little-apps.com>
+ * @license  CC0-1.0 http://creativecommons.org/publicdomain/zero/1.0/
+ * @link     https://github.com/jcnventura/bufferphp
+ */
+class BufferPHP
+{
+    private $_config = array(
+                        // You can change the options below if you wish.
+                        // The user agent to send to the Buffer API.
+                        'user_agent'      => 'BufferPHP v0.2',
+                        // Maximum time to wait (in seconds) before connect fails.
+                        'connect_timeout' => 30,
+                        // Maximum time to wait (in seconds) before API doesn't
+                        // respond.
+                        'timeout'         => 30,
+                        // This is false by default because some servers have
+                        // trouble verifying SSL certificates through cURL.
+                        'verify_ssl_cert' => false,
+                       );
 
-	/**
-	 * Class constructor
-	 * (Throws InvalidArgumentException if $token is not a string)
-	 *
-	 * @param string $token Access Token for app
-	 */
-	function __construct($token) {
-		if (is_string($token)) {
-			$this->access_token = $token;
-		} else {
-			throw new InvalidArgumentException('token must be a string');
-		}
-	}
-	
-	/**
-	 * Sends GET request to Buffer API
-	 *
-	 * @access public
-	 *
-	 * @param string $uri Endpoint to send data to (usually something like 'updates/create')
-	 * @param array $data Data to send to API. See API documentation for the parameters.
-	 *
-	 * @return class Returns a stdClass containing decode JSON data
-	 */
-	public function get($uri, $data = array()) {
-		if (is_array($data) && count($data) > 0) {
-			$query = http_build_query($data);
-		}
-	
-		return $this->api('get', $this->base_url . $uri, $query);
-	}
-	
-	/**
-	 * Sends POST request to Buffer API
-	 *
-	 * @access public
-	 *
-	 * @param string $uri Endpoint to send data to (usually something like 'updates/create')
-	 * @param array $data Data to send to API. See API documentation for the parameters.
-	 *
-	 * @return class Returns a stdClass containing decode JSON data
-	 */
-	public function post($uri, $data = array()) {
-		if (is_array($data) && count($data) > 0) {
-			$query = http_build_query($data);
-		}
-		
-		return $this->api('post', $this->base_url . $uri, $query);
-	}
-	
-	/**
-	 * Sends HTTP request to Buffer API
-	 *
-	 * @access private
-	 *
-	 * @param string $method Method to use to send data (post or get)
-	 * @param string $uri URL for where to send data
-	 * @param string $query_string Query string to pass to server (default is empty)
-	 *
-	 * @return class Returns a stdClass containing decode JSON data
-	 */
-	private function api($method, $uri, $query_string = '') {
-		if (preg_match('/\.json$/', $uri) == 0)
-			$uri .= '.json';
-			
-		$this->http_info = array();
-		
-		$ci = curl_init();
-		/* Curl settings */
-		curl_setopt($ci, CURLOPT_USERAGENT, $this->config['user_agent']);
-		curl_setopt($ci, CURLOPT_CONNECTTIMEOUT, $this->config['connect_timeout']);
-		curl_setopt($ci, CURLOPT_TIMEOUT, $this->config['timeout']);
-		curl_setopt($ci, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ci, CURLOPT_HTTPHEADER, array('Expect:', 'Authorization: Bearer ' . $this->access_token));
-		curl_setopt($ci, CURLOPT_SSL_VERIFYPEER, $this->config['verify_ssl_cert']);
-		curl_setopt($ci, CURLOPT_HEADERFUNCTION, array($this, 'getHeader'));
-		curl_setopt($ci, CURLOPT_HEADER, 0);
+    // You should only change the code below if you know what you're doing!
+    /**
+     * Access token
+     *
+     * @var string
+     */
+    private $_access_token = '';
+    /**
+     * Base URL for API
+     *
+     * @var string
+     */
+    private $_base_url = 'https://api.bufferapp.com/1/';
+    /**
+     * HTTP headers from last request
+     *
+     * @var array
+     */
+    public $http_header = array();
+    /**
+     * Info about last cURL request
+     *
+     * @var array
+     */
+    public $http_info = array();
+    /**
+     * The last URL used
+     *
+     * @var string
+     */
+    public $last_url = '';
 
-		if ($method == 'post') {
-			curl_setopt($ci, CURLOPT_POST, TRUE);
-			if (!empty($query_string)) {
-				curl_setopt($ci, CURLOPT_POSTFIELDS, $query_string);
-			}
-		} else if ($method == 'get' && !empty($query_string)) {
-			$uri = $uri . '?' . $query_string;
-		}
 
-		curl_setopt($ci, CURLOPT_URL, $uri);
-		$response = curl_exec($ci);
+    /**
+     * Class constructor
+     * (Throws InvalidArgumentException if $token is not a string)
+     *
+     * @param string $token Access Token for app
+     */
+    public function __construct($token)
+    {
+        if (is_string($token) === true) {
+            $this->_access_token = $token;
+        } else {
+            throw new \InvalidArgumentException('token must be a string');
+        }
 
-		$this->http_info = array_merge($this->http_info, curl_getinfo($ci));
-		$this->last_url = $uri;
-		
-		curl_close ($ci);
-		
-		return json_decode($response);
-	}
-	
-	/**
-	 * Used to save HTTP header of last request
-	 *
-	 * @access private
-	 *
-	 * @param resource $ch cURL handler
-	 * @param string HTTP header
-	 *
-	 * @return int Returns length of header
-	 */
-	private function getHeader($ch, $header) {
-		$i = strpos($header, ':');
-		if (!empty($i)) {
-			$key = str_replace('-', '_', strtolower(substr($header, 0, $i)));
-			$value = trim(substr($header, $i + 2));
-			$this->http_header[$key] = $value;
-		}
-		return strlen($header);
-	}
-}
+    }//end __construct()
+
+
+    /**
+     * Sends GET request to Buffer API
+     *
+     * @param string $uri  Endpoint to send data to (usually like 'updates/create')
+     * @param array  $data Data to send to API. See API docs for the parameters.
+     *
+     * @return object Returns a stdClass containing decode JSON data
+     */
+    public function get($uri, $data = array())
+    {
+        if (is_array($data) === true && count($data) > 0) {
+            $query = http_build_query($data);
+        } else {
+            $query = '';
+        }
+
+        return $this->_api('get', $this->_base_url.$uri, $query);
+
+    }//end get()
+
+
+    /**
+     * Sends POST request to Buffer API
+     *
+     * @param string $uri  Endpoint to send data to (usually like 'updates/create')
+     * @param array  $data Data to send to API. See API docs for the parameters.
+     *
+     * @return object Returns a stdClass containing decode JSON data
+     */
+    public function post($uri, $data = array())
+    {
+        if (is_array($data) === true && count($data) > 0) {
+            $query = http_build_query($data);
+        } else {
+            $query = '';
+        }
+
+        return $this->_api('post', $this->_base_url.$uri, $query);
+
+    }//end post()
+
+
+    /**
+     * Sends HTTP request to Buffer API
+     *
+     * @param string $method       Method to use to send data (post or get)
+     * @param string $uri          URL for where to send data
+     * @param string $query_string Query string to pass to server (default is empty)
+     *
+     * @return object Returns a stdClass containing decode JSON data
+     */
+    private function _api($method, $uri, $query_string = '')
+    {
+        if (preg_match('/\.json$/', $uri) === 0) {
+            $uri .= '.json';
+        }
+
+        $this->http_info = array();
+
+        $ci = curl_init();
+        // Curl settings.
+        curl_setopt($ci, CURLOPT_USERAGENT, $this->_config['user_agent']);
+        curl_setopt($ci, CURLOPT_CONNECTTIMEOUT, $this->_config['connect_timeout']);
+        curl_setopt($ci, CURLOPT_TIMEOUT, $this->_config['timeout']);
+        curl_setopt($ci, CURLOPT_RETURNTRANSFER, 1);
+        $http_header = array(
+                        'Expect:',
+                        'Authorization: Bearer '.$this->_access_token,
+                       );
+        curl_setopt($ci, CURLOPT_HTTPHEADER, $http_header);
+        curl_setopt($ci, CURLOPT_SSL_VERIFYPEER, $this->_config['verify_ssl_cert']);
+        curl_setopt($ci, CURLOPT_HEADERFUNCTION, array($this, '_getHeader'));
+        curl_setopt($ci, CURLOPT_HEADER, 0);
+
+        if ($method === 'post') {
+            curl_setopt($ci, CURLOPT_POST, true);
+            if (empty($query_string) === false) {
+                curl_setopt($ci, CURLOPT_POSTFIELDS, $query_string);
+            }
+        } else if ($method === 'get' && empty($query_string) === false) {
+            $uri = $uri.'?'.$query_string;
+        }
+
+        curl_setopt($ci, CURLOPT_URL, $uri);
+        $response = curl_exec($ci);
+
+        $this->http_info = array_merge($this->http_info, curl_getinfo($ci));
+        $this->last_url  = $uri;
+
+        curl_close($ci);
+
+        return json_decode($response);
+
+    }//end _api()
+
+
+    /**
+     * Used to save HTTP header of last request
+     *
+     * @param resource $ch     cURL handler
+     * @param string   $header HTTP header
+     *
+     * @return int Returns length of header
+     */
+    private function _getHeader($ch, $header)
+    {
+        $i = strpos($header, ':');
+        if (empty($i) === false) {
+            $key   = str_replace('-', '_', strtolower(substr($header, 0, $i)));
+            $value = trim(substr($header, ($i + 2)));
+            $this->http_header[$key] = $value;
+        }
+
+        return strlen($header);
+
+    }//end _getHeader()
+
+
+}//end class
